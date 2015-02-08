@@ -3,10 +3,10 @@ require 'bundler/setup'
 
 PACKAGE_NAME = "hello"
 VERSION = "1.0.0"
-TRAVELING_RUBY_VERSION = "20141215-2.1.5"
+TRAVELING_RUBY_VERSION = "20150204-2.1.5"
 
 desc "Package your app"
-task :package => ['package:linux:x86', 'package:linux:x86_64', 'package:osx']
+task :package => ['package:linux:x86', 'package:linux:x86_64', 'package:osx', 'package:win32']
 
 namespace :package do
   namespace :linux do
@@ -24,6 +24,11 @@ namespace :package do
   desc "Package your app for OS X"
   task :osx => [:bundle_install, "packaging/traveling-ruby-#{TRAVELING_RUBY_VERSION}-osx.tar.gz"] do
     create_package("osx")
+  end
+
+  desc "Package your app for Windows x86"
+  task :win32 => [:bundle_install, "packaging/traveling-ruby-#{TRAVELING_RUBY_VERSION}-win32.tar.gz"] do
+    create_package("win32", :windows)
   end
 
   desc "Install gems to local directory"
@@ -54,7 +59,11 @@ file "packaging/traveling-ruby-#{TRAVELING_RUBY_VERSION}-osx.tar.gz" do
   download_runtime("osx")
 end
 
-def create_package(target)
+file "packaging/traveling-ruby-#{TRAVELING_RUBY_VERSION}-win32.tar.gz" do
+  download_runtime("win32")
+end
+
+def create_package(target, os_type = :unix)
   package_dir = "#{PACKAGE_NAME}-#{VERSION}-#{target}"
   sh "rm -rf #{package_dir}"
   sh "mkdir #{package_dir}"
@@ -62,13 +71,21 @@ def create_package(target)
   sh "cp hello.rb #{package_dir}/lib/app/"
   sh "mkdir #{package_dir}/lib/ruby"
   sh "tar -xzf packaging/traveling-ruby-#{TRAVELING_RUBY_VERSION}-#{target}.tar.gz -C #{package_dir}/lib/ruby"
-  sh "cp packaging/wrapper.sh #{package_dir}/hello"
+  if os_type == :unix
+    sh "cp packaging/wrapper.sh #{package_dir}/hello"
+  else
+    sh "cp packaging/wrapper.bat #{package_dir}/hello.bat"
+  end
   sh "cp -pR packaging/vendor #{package_dir}/lib/"
   sh "cp Gemfile Gemfile.lock #{package_dir}/lib/vendor/"
   sh "mkdir #{package_dir}/lib/vendor/.bundle"
   sh "cp packaging/bundler-config #{package_dir}/lib/vendor/.bundle/config"
   if !ENV['DIR_ONLY']
-    sh "tar -czf #{package_dir}.tar.gz #{package_dir}"
+    if os_type == :unix
+      sh "tar -czf #{package_dir}.tar.gz #{package_dir}"
+    else
+      sh "zip -9r #{package_dir}.zip #{package_dir}"
+    end
     sh "rm -rf #{package_dir}"
   end
 end
